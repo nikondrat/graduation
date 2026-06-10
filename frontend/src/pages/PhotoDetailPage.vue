@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted, watch, nextTick } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { Teleport } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import LicenseSelector from '../components/LicenseSelector.vue'
@@ -7,7 +7,9 @@ import SimilarPhotos from '../components/SimilarPhotos.vue'
 import AuthorAvatar from '../components/common/AuthorAvatar.vue'
 import type { Photo } from '../data/photos'
 import { getPhoto, getSimilarPhotos } from '../services/photoService'
-import { User as UserIcon, Maximize2, ArrowRight } from 'lucide-vue-next'
+import { addToCart } from '../services/cartService'
+import { auth } from '../utils/auth'
+import { Maximize2, ArrowRight } from 'lucide-vue-next'
 
 const route = useRoute()
 const router = useRouter()
@@ -93,17 +95,19 @@ const totalPrice = computed(() => {
   return selectedLicense.value?.price || 0
 })
 
-function handleBuy() {
-  // UI только - без функциональности
-  console.log('Покупка:', { photoId: photo.value?.id, licenseId: selectedLicenseId.value })
-}
+async function handleBuy() {
+  if (!auth.isAuthenticated()) {
+    router.push({ name: 'login', query: { redirect: route.fullPath } })
+    return
+  }
+  if (!photo.value || !selectedLicenseId.value) return
 
-function handleAddToCart() {
-  // UI только - без функциональности
-  console.log('Добавление в корзину:', {
-    photoId: photo.value?.id,
-    licenseId: selectedLicenseId.value,
-  })
+  try {
+    await addToCart(photo.value.id, selectedLicenseId.value)
+    router.push({ name: 'cart' })
+  } catch (e: any) {
+    console.error('Ошибка добавления в корзину:', e)
+  }
 }
 
 function toggleZoom() {
@@ -274,7 +278,7 @@ onUnmounted(() => {
             />
 
             <div class="photo-detail-licenses__actions">
-              <button class="btn btn--primary photo-detail-licenses__buy" @click="handleBuy">
+              <button class="btn btn--primary photo-detail-licenses__buy" @click="handleBuy" :disabled="!selectedLicenseId">
                 {{ $t('photo.buy') }} ₽{{ totalPrice.toLocaleString() }}
               </button>
               <button

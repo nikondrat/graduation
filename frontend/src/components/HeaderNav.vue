@@ -2,7 +2,7 @@
 import { ref, onMounted, onUnmounted, watch, nextTick, computed } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { auth } from "../utils/auth";
-import { LogOut, LayoutDashboard, Globe } from "lucide-vue-next";
+import { LogOut, LayoutDashboard, Globe, ShoppingCart } from "lucide-vue-next";
 import AuthorAvatar from "./common/AuthorAvatar.vue";
 import { useI18n } from "vue-i18n";
 
@@ -35,11 +35,26 @@ function toggleLocale() {
 const currentUser = computed(() => userState.value);
 const isAdmin = computed(() => userState.value?.role === "admin");
 const isAuthor = computed(() => userState.value?.role === "author");
+const cartCount = ref(0);
+
+async function fetchCartCount() {
+  if (!auth.isAuthenticated()) {
+    cartCount.value = 0
+    return
+  }
+  try {
+    const { getCartCount } = await import('../services/cartService')
+    cartCount.value = await getCartCount()
+  } catch {
+    cartCount.value = 0
+  }
+}
 
 watch(
   () => route.path,
   () => {
     userState.value = auth.getCurrentUser();
+    fetchCartCount();
   }
 );
 
@@ -79,6 +94,7 @@ watch(isMenuOpen, (open) => {
 
 onMounted(() => {
   window.addEventListener("scroll", handleScroll, { passive: true });
+  fetchCartCount();
 });
 
 onUnmounted(() => {
@@ -115,6 +131,20 @@ onUnmounted(() => {
       </nav>
 
       <div class="header__actions">
+        <button
+          type="button"
+          class="header__locale-btn"
+          :title="t('common.switchLanguage')"
+          :aria-label="t('common.switchLanguage')"
+          @click="toggleLocale"
+        >
+          <Globe :size="20" aria-hidden="true" />
+          <span class="header__locale-code">{{ locale }}</span>
+        </button>
+        <RouterLink to="/cart" class="header__cart-btn" :aria-label="$t('cart.title')">
+          <ShoppingCart :size="20" />
+          <span v-if="cartCount > 0" class="header__cart-badge">{{ cartCount }}</span>
+        </RouterLink>
         <template v-if="currentUser">
           <RouterLink
             v-if="isAdmin"
@@ -244,6 +274,29 @@ onUnmounted(() => {
             </div>
 
             <div class="header__mobile-actions">
+              <button
+                type="button"
+                class="btn btn--ghost header__mobile-locale"
+                @click="toggleLocale"
+              >
+                <Globe :size="18" aria-hidden="true" />
+                {{
+                  locale === "ru"
+                    ? t("common.languageTargetEn")
+                    : t("common.languageTargetRu")
+                }}
+              </button>
+              <RouterLink
+                class="btn btn--ghost"
+                to="/cart"
+                @click="closeMenu"
+              >
+                <ShoppingCart :size="18" />
+                {{ $t('cart.title') }}
+                <span v-if="cartCount > 0" class="header__mobile-cart-count">
+                  ({{ cartCount }})
+                </span>
+              </RouterLink>
               <template v-if="currentUser">
                 <RouterLink
                   v-if="isAdmin"
@@ -416,6 +469,84 @@ onUnmounted(() => {
 .header__action-icon--logout:hover {
   color: var(--color-danger);
   background: rgba(239, 68, 68, 0.05);
+}
+
+.header__locale-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  min-width: 40px;
+  height: 40px;
+  padding-inline: 0.55rem;
+  border-radius: 999px;
+  color: var(--color-text-muted);
+  background: transparent;
+  border: 1px solid rgba(15, 23, 42, 0.1);
+  cursor: pointer;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  transition: background 0.2s ease, color 0.2s ease, border-color 0.2s ease;
+}
+
+.header__locale-btn:hover {
+  background: var(--color-surface);
+  color: var(--color-text);
+  border-color: rgba(15, 23, 42, 0.16);
+}
+
+.header__cart-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  color: var(--color-text-muted);
+  position: relative;
+  transition: all 0.2s ease;
+}
+
+.header__cart-btn:hover {
+  background: var(--color-surface);
+  color: var(--color-text);
+}
+
+.header__cart-badge {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: var(--color-accent);
+  color: #ffffff;
+  font-size: 0.7rem;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+  pointer-events: none;
+}
+
+.header__mobile-cart-count {
+  font-size: 0.85rem;
+  color: var(--color-text-muted);
+}
+
+.header__locale-code {
+  line-height: 1;
+}
+
+.header__mobile-locale {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
 }
 
 .header__burger {

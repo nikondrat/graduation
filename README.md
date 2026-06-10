@@ -158,19 +158,66 @@ chmod +x photo backend/photo   # один раз, если zsh: permission denie
 
 ## Деплой на VDS
 
-Проект поддерживает автоматизированный деплой на любой Linux-сервер с Docker через `rsync` и `ssh` (аналогично скриптам в `jitro`).
+Автоматизированный деплой на Linux-сервер через `rsync` + `ssh` + Docker.
 
-1. Настройте параметры сервера в `.env`:
-  - `PHOTO_DEPLOY_HOST` — IP или домен сервера.
-  - `PHOTO_DEPLOY_USER` — пользователь (например, `root`).
-  - `PHOTO_DEPLOY_PATH` — путь к проекту на сервере.
-2. Запустите деплой:
+### 1. Создайте сервер (Timeweb и др.)
+
+При создании VDS (Ubuntu 22.04+) вставьте скрипт в поле **Cloud-init**:
+
+```bash
+cat scripts/cloud-init.sh
+```
+
+Он установит Docker, UFW (22/80/443) и swap 2GB.
+
+### 2. Настройте SSH
+
+```bash
+ssh-copy-id root@<IP-сервера>
+```
+
+### 3. Настройте `PHOTO_DEPLOY_HOST` в `.env`
+
+```bash
+echo 'PHOTO_DEPLOY_HOST=<IP-сервера>' >> .env
+```
+
+### 4. Запустите деплой
 
 ```bash
 ./photo deploy
 ```
 
-Скрипт синхронизирует код, соберет образы на сервере, накатит миграции, заполнит сиды и перезапустит контейнеры.
+Скрипт:
+1. 🔨 Собирает **фронт** (`npm run build`) и **статику** (`collectstatic`) локально
+2. 📤 Синхронизирует код на VDS
+3. 🔐 Генерирует production `.env` (секретный ключ, пароль админа)
+4. 🐳 Собирает Docker-образы на VDS (Postgres + Django + Nginx)
+5. 🔄 Миграции + демо-данные
+6. 🚀 Запуск: **Nginx (:80)** → Django (Gunicorn) → PostgreSQL
+
+### Архитектура продакшена
+
+```
+Пользователь ──▶ Nginx (:80)
+                    ├── /        → frontend/dist/index.html (SPA)
+                    ├── /api/*   → backend:8000 (Django)
+                    ├── /admin/* → backend:8000 (Django)
+                    ├── /static/* → backend/staticfiles/
+                    └── /media/*  → Docker volume (фото)
+```
+
+Домен не обязателен — всё работает по IP. Готово к HTTPS (добавьте `server` с SSL в `scripts/nginx.conf` при появлении домена).
+
+### Переменные деплоя
+
+| Переменная | По умолчанию | Описание |
+|---|---|---|
+| `PHOTO_DEPLOY_HOST` | — | IP или домен VDS (обязательно) |
+| `PHOTO_DEPLOY_USER` | `root` | SSH-пользователь |
+| `PHOTO_DEPLOY_PATH` | `/opt/phototochka` | Путь на сервере |
+| `PHOTO_DEPLOY_SKIP_BUILD` | `0` | `=1` пропустить локальную сборку |
+| `PIP_INDEX_URL` | — | Зеркало PyPI (если таймауты) |
 
 ---
 

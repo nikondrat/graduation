@@ -1,6 +1,17 @@
 import { createRouter, createWebHistory } from 'vue-router'
+import type { RouteRecordRaw } from 'vue-router'
 import { auth } from '../utils/auth'
 import { applySeo } from '../seo/seoConfig'
+
+const devOnlyRoutes: RouteRecordRaw[] = import.meta.env.DEV
+  ? [
+      {
+        path: '/__dev/photo-card-states',
+        name: 'dev-photo-card-states',
+        component: () => import('../pages/dev/PhotoCardStatesPage.vue'),
+      },
+    ]
+  : []
 
 const router = createRouter({
   history: createWebHistory(),
@@ -96,6 +107,35 @@ const router = createRouter({
       component: () => import('../pages/PhotographerSettings.vue'),
     },
     {
+      path: '/cart',
+      name: 'cart',
+      component: () => import('../pages/CartPage.vue'),
+    },
+    {
+      path: '/checkout',
+      name: 'checkout',
+      component: () => import('../pages/CheckoutPage.vue'),
+      meta: { requiresAuth: true },
+    },
+    {
+      path: '/payment/:id',
+      name: 'payment',
+      component: () => import('../pages/PaymentPage.vue'),
+      meta: { requiresAuth: true },
+    },
+    {
+      path: '/profile/orders',
+      name: 'order-history',
+      component: () => import('../pages/OrderHistoryPage.vue'),
+      meta: { requiresAuth: true },
+    },
+    {
+      path: '/profile/orders/:id',
+      name: 'order-detail',
+      component: () => import('../pages/OrderDetailPage.vue'),
+      meta: { requiresAuth: true },
+    },
+    {
       path: '/admin',
       name: 'admin',
       component: () => import('../pages/AdminPage.vue'),
@@ -106,6 +146,7 @@ const router = createRouter({
       name: 'public-profile',
       component: () => import('../pages/PublicProfilePage.vue'),
     },
+    ...devOnlyRoutes,
     {
       path: '/:pathMatch(.*)*',
       redirect: '/',
